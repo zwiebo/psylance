@@ -1,0 +1,10 @@
+build/
+out/
+Dist/
+dist/
+.vs/
+*.user
+*.suo
+CMakeCache.txt
+CMakeFiles/
+compile_commands.json
