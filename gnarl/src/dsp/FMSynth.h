@@ -3,6 +3,7 @@
 #include "Envelope.h"
 #include "Filter.h"
 #include "Oscillator.h"
+#include "Smoother.h"
 #include "Waveshaper.h"
 
 namespace gnarl::dsp {
@@ -23,10 +24,13 @@ struct VoiceParams {
     float drive = 0.3f;        // 0..1
     float glide = 0.08f;       // portamento time, seconds (0 = instant)
     float gain = 0.8f;
+    float legato = 1.0f;       // >0.5: new note glides without restarting the amp envelope
+    int filterMode = 0;        // 0 = low-pass, 1 = band-pass, 2 = high-pass
 };
 
 // Monophonic FM voice: carrier + modulator, independent FM envelope, amp
-// ADSR, resonant SVF low-pass, soft-clip drive, exponential glide.
+// ADSR, resonant SVF (LP priority, BP/HP selectable), soft-clip drive,
+// exponential glide with monophonic legato, per-sample parameter smoothing.
 class Voice {
 public:
     void setSampleRate(double sr);
@@ -45,14 +49,26 @@ private:
         return 440.0 * std::exp2((midiNote - 69) / 12.0);
     }
 
+    VoiceParams sanitize(const VoiceParams& p) const;
+    static StateVariableFilter::Mode modeFromInt(int m) {
+        switch (m) {
+            case 1:  return StateVariableFilter::Mode::BandPass;
+            case 2:  return StateVariableFilter::Mode::HighPass;
+            default: return StateVariableFilter::Mode::LowPass;
+        }
+    }
+
     SineOscillator carrier, modulator;
     AdsrEnvelope ampEnv, fmEnv;
     StateVariableFilter filter;
+    ParamSmoother ratioSm, indexSm, fmAmtSm, cutoffSm, resoSm, driveSm, gainSm;
     double sampleRate = 44100.0;
     double currentFreq = 440.0, targetFreq = 440.0;
     float velocity = 0.0f;
+    float legato_ = 1.0f;
     int currentNote = -1;
     bool gliding_ = false;
+    bool freshNote_ = false;
 };
 
 // Monophonic synth engine: owns the single lead voice and renders blocks.
