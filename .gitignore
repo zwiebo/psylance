@@ -1,0 +1,7 @@
+build/
+out/
+.cache/
+.vs/
+*.user
+*.suo
+CMakePresets.json.local
