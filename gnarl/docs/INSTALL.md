@@ -7,6 +7,7 @@ run of the **Build GNARL VST3 (Windows)** GitHub Action on this branch,
 or build locally on Windows:
 
 ```
+cd gnarl
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --config Release
 ```

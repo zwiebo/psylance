@@ -4,7 +4,7 @@
 
 | Dependency | Version | How pinned |
 |---|---|---|
-| JUCE | 8.0.6 (git tag) | `FetchContent` with `GIT_TAG 8.0.6` in root `CMakeLists.txt` |
+| JUCE | 8.0.6 (git tag) | `FetchContent` with `GIT_TAG 8.0.6` in `gnarl/CMakeLists.txt` `gnarl/CMakeLists.txt` |
 | CMake | >= 3.22 | `cmake_minimum_required` |
 | Compiler | MSVC (VS 2022) on Windows; any C++17 compiler for DSP tests | CI: `windows-latest` |
 
@@ -40,5 +40,5 @@ GPLv3 route. Consequences:
 - **Verification strategy**: DSP correctness is proven by automated tests on
   Linux and Windows CI. FL Studio host behavior (loading, live MIDI routing)
   cannot be automated in this environment and is covered by a documented
-  manual checklist (`docs/FL_STUDIO_TEST_CHECKLIST.md`). No host-specific
+  manual checklist (`docs/FL_STUDIO_TESTING.md`). No host-specific
   behavior is claimed as verified until tested by the owner.

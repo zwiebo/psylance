@@ -1,5 +1,7 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "dsp/SoundMutation.h"
+#include "presets/Presets.h"
 
 #include <cmath>
 #include <random>
@@ -44,6 +46,26 @@ gnarl::dsp::VoiceParams GnarlAudioProcessor::makeVoiceParams() const {
     return p;
 }
 
+void GnarlAudioProcessor::writeVoiceParams(const gnarl::dsp::VoiceParams& p) {
+    auto set = [this](const char* id, float v) {
+        if (auto* param = apvts.getParameter(id))
+            param->setValueNotifyingHost(param->convertTo0to1(v));
+    };
+    set("ratio", p.ratio);
+    set("modIndex", p.modIndex);
+    set("fmEnvDecay", p.fmEnvDecay);
+    set("fmEnvAmount", p.fmEnvAmount);
+    set("attack", p.attack);
+    set("decay", p.decay);
+    set("sustain", p.sustain);
+    set("release", p.release);
+    set("cutoff", p.cutoff);
+    set("resonance", p.resonance);
+    set("drive", p.drive);
+    set("glide", p.glide);
+    set("gain", p.gain);
+}
+
 void GnarlAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi) {
     juce::ScopedNoDenormals noDenormals;
 
@@ -81,78 +103,24 @@ juce::AudioProcessorEditor* GnarlAudioProcessor::createEditor() {
     return new GnarlAudioProcessorEditor(*this);
 }
 
-int GnarlAudioProcessor::getNumPrograms() { return 5; }
+int GnarlAudioProcessor::getNumPrograms() { return gnarl::presets::count(); }
 int GnarlAudioProcessor::getCurrentProgram() { return currentProgram; }
 
 const juce::String GnarlAudioProcessor::getProgramName(int index) {
-    static const char* names[] = { "Init", "Bubbly Lead", "Dark Growl", "Perc Hit", "Metallic" };
-    return index >= 0 && index < 5 ? juce::String(names[index]) : juce::String();
+    return juce::String(gnarl::presets::name(index));
 }
 
 void GnarlAudioProcessor::setCurrentProgram(int index) {
     if (index >= 0 && index < getNumPrograms()) {
         currentProgram = index;
-        applyPreset(index);
-    }
-}
-
-void GnarlAudioProcessor::applyPreset(int index) {
-    auto set = [this](const char* id, float v) {
-        if (auto* p = apvts.getParameter(id))
-            p->setValueNotifyingHost(p->convertTo0to1(v));
-    };
-    switch (index) {
-        case 0:
-            set("ratio", 1.0f); set("modIndex", 4.0f); set("fmEnvDecay", 0.25f);
-            set("fmEnvAmount", 1.0f); set("attack", 0.005f); set("decay", 0.25f);
-            set("sustain", 0.8f); set("release", 0.3f); set("cutoff", 6000.0f);
-            set("resonance", 0.2f); set("drive", 0.3f); set("glide", 0.08f);
-            break;
-        case 1: // Bubbly Lead
-            set("ratio", 2.0f); set("modIndex", 6.0f); set("fmEnvDecay", 0.12f);
-            set("fmEnvAmount", 1.0f); set("attack", 0.003f); set("decay", 0.3f);
-            set("sustain", 0.9f); set("release", 0.25f); set("cutoff", 9000.0f);
-            set("resonance", 0.35f); set("drive", 0.2f); set("glide", 0.06f);
-            break;
-        case 2: // Dark Growl
-            set("ratio", 1.0f); set("modIndex", 9.0f); set("fmEnvDecay", 0.5f);
-            set("fmEnvAmount", 0.9f); set("attack", 0.01f); set("decay", 0.5f);
-            set("sustain", 0.7f); set("release", 0.4f); set("cutoff", 1800.0f);
-            set("resonance", 0.6f); set("drive", 0.7f); set("glide", 0.12f);
-            break;
-        case 3: // Perc Hit
-            set("ratio", 3.0f); set("modIndex", 8.0f); set("fmEnvDecay", 0.05f);
-            set("fmEnvAmount", 1.0f); set("attack", 0.001f); set("decay", 0.12f);
-            set("sustain", 0.0f); set("release", 0.08f); set("cutoff", 4000.0f);
-            set("resonance", 0.3f); set("drive", 0.5f); set("glide", 0.0f);
-            break;
-        case 4: // Metallic
-            set("ratio", 4.0f); set("modIndex", 5.0f); set("fmEnvDecay", 0.8f);
-            set("fmEnvAmount", 0.7f); set("attack", 0.002f); set("decay", 0.6f);
-            set("sustain", 0.6f); set("release", 0.5f); set("cutoff", 12000.0f);
-            set("resonance", 0.5f); set("drive", 0.6f); set("glide", 0.03f);
-            break;
+        writeVoiceParams(gnarl::presets::factory(index));
     }
 }
 
 void GnarlAudioProcessor::mutateSound() {
-    std::uniform_real_distribution<float> uni(0.0f, 1.0f);
-    static const float ratios[] = { 0.5f, 1.0f, 1.5f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 8.0f };
-    std::uniform_int_distribution<size_t> ratioPick(0, 8);
-    std::uniform_real_distribution<float> indexDist(2.0f, 10.0f);
-    std::uniform_real_distribution<float> cutoffDist(800.0f, 14000.0f);
-
-    auto set = [this](const char* id, float v) {
-        if (auto* p = apvts.getParameter(id))
-            p->setValueNotifyingHost(p->convertTo0to1(v));
-    };
-    set("ratio", ratios[ratioPick(rng)]);
-    set("modIndex", indexDist(rng));
-    set("fmEnvDecay", 0.05f + 0.6f * uni(rng));
-    set("cutoff", cutoffDist(rng));
-    set("drive", 0.1f + 0.7f * uni(rng));
-    set("resonance", 0.1f + 0.6f * uni(rng));
-    set("glide", 0.02f + 0.2f * uni(rng));
+    auto p = makeVoiceParams();
+    gnarl::dsp::mutateSound(p, rng);
+    writeVoiceParams(p);
 }
 
 void GnarlAudioProcessor::getStateInformation(juce::MemoryBlock& destData) {

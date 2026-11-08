@@ -1,7 +1,7 @@
 #pragma once
 
 #include <JuceHeader.h>
-#include "dsp/SynthEngine.h"
+#include "dsp/FMSynth.h"
 #include "params/Parameters.h"
 
 class GnarlAudioProcessor : public juce::AudioProcessor {
@@ -37,9 +37,9 @@ public:
     juce::AudioProcessorValueTreeState apvts;
 
 private:
-    gnarl::dsp::SynthEngine engine;
+    gnarl::dsp::FMSynth engine;
     gnarl::dsp::VoiceParams makeVoiceParams() const;
-    void applyPreset(int index);
+    void writeVoiceParams(const gnarl::dsp::VoiceParams& p);
 
     int currentProgram = 0;
     std::mt19937 rng;

@@ -30,7 +30,7 @@ target_sources(GNARL PRIVATE
     src/PluginProcessor.cpp
     src/PluginEditor.cpp
     src/params/Parameters.cpp
-    src/dsp/Voice.cpp
+    src/dsp/FMSynth.cpp src/dsp/Envelope.cpp src/dsp/SoundMutation.cpp src/presets/Presets.cpp src/sequencer/PatternGenerator.cpp src/sequencer/StepScheduler.cpp src/sequencer/MidiExporter.cpp
     src/dsp/SynthEngine.cpp)
 
 target_include_directories(GNARL PRIVATE src)

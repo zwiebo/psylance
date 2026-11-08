@@ -4,7 +4,7 @@
 #include "dsp/Oscillator.h"
 #include "dsp/Filter.h"
 #include "dsp/Waveshaper.h"
-#include "dsp/SynthEngine.h"
+#include "dsp/FMSynth.h"
 
 #include <cmath>
 #include <cstdio>
@@ -96,7 +96,7 @@ static void testWaveshaper() {
 }
 
 static void runVoiceAt(double sampleRate, int blockSize) {
-    gnarl::dsp::SynthEngine engine;
+    gnarl::dsp::FMSynth engine;
     engine.setSampleRate(sampleRate);
     gnarl::dsp::VoiceParams p;
     p.ratio = 2.0f; p.modIndex = 7.0f; p.fmEnvDecay = 0.1f;

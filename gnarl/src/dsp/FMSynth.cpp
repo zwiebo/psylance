@@ -1,4 +1,4 @@
-#include "Voice.h"
+#include "FMSynth.h"
 
 #include <algorithm>
 #include <cmath>
