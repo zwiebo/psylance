@@ -1,7 +1,11 @@
 build/
+build-tests/
 out/
 Dist/
 dist/
+deps/
+vst3sdk/
+sdk-build/
 .vs/
 *.user
 *.suo

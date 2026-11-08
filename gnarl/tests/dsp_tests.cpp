@@ -6,6 +6,7 @@
 #include "dsp/Waveshaper.h"
 #include "dsp/FMSynth.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <vector>
@@ -132,6 +133,41 @@ static void runVoiceAt(double sampleRate, int blockSize) {
     CHECK(tailEnergy < 1e-6); // no hanging note after release
 }
 
+static void testSilenceOnIdle() {
+    gnarl::dsp::FMSynth engine;
+    engine.setSampleRate(48000.0);
+    gnarl::dsp::VoiceParams p;
+    std::vector<float> buf(512);
+    for (int block = 0; block < 100; ++block) {
+        std::fill(buf.begin(), buf.end(), 0.0f);
+        engine.render(buf.data(), static_cast<int>(buf.size()), p);
+        for (auto s : buf) CHECK(s == 0.0f);
+    }
+}
+
+static void testAllNotesOffClearsVoice() {
+    gnarl::dsp::FMSynth engine;
+    engine.setSampleRate(48000.0);
+    gnarl::dsp::VoiceParams p;
+    p.attack = 0.001f; p.decay = 0.1f; p.sustain = 1.0f; p.release = 0.05f;
+    std::vector<float> buf(256);
+    engine.noteOn(60, 1.0f);
+    engine.render(buf.data(), static_cast<int>(buf.size()), p);
+    engine.allNotesOff();
+    CHECK(!engine.isActive());
+    double tailEnergy = 0.0;
+    for (int block = 0; block < 20; ++block) {
+        std::fill(buf.begin(), buf.end(), 0.0f);
+        engine.render(buf.data(), static_cast<int>(buf.size()), p);
+        for (auto s : buf) {
+            CHECK(finite(s));
+            if (block > 0) // skip the single bounded filter-tail block
+                tailEnergy += static_cast<double>(s) * s;
+        }
+    }
+    CHECK(tailEnergy < 1e-9);
+}
+
 static void testVoiceNoStuckNotes() {
     runVoiceAt(44100.0, 64);
     runVoiceAt(48000.0, 256);
@@ -143,6 +179,8 @@ int main() {
     testOscillatorFrequency();
     testFilterStability();
     testWaveshaper();
+    testSilenceOnIdle();
+    testAllNotesOffClearsVoice();
     testVoiceNoStuckNotes();
     if (failures == 0)
         std::printf("ALL DSP TESTS PASSED\n");

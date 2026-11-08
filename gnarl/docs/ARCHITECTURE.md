@@ -19,8 +19,10 @@ gnarl/
       Waveshaper.h               tanh soft clipper
       SoundMutation.h/.cpp       Darkpsy-biased parameter mutation (pure function)
     presets/Presets.h/.cpp       Factory presets as VoiceParams
-    sequencer/                   M3/M4 contracts (pattern data, scheduler, MIDI export)
-  tests/                         Standalone DSP tests (no JUCE needed)
+    sequencer/                   Host-independent pattern data, sample-accurate
+                                 step scheduler, SMF (MIDI file) export
+  tests/                         Standalone DSP + sequencer tests (no JUCE needed)
+  tools/                         CI verification scripts (VST3 bundle, DLL deps)
   docs/
 ```
 

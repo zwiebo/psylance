@@ -10,40 +10,83 @@ defaults:
   run:
     working-directory: gnarl
 
+env:
+  # Pinned dependencies (see docs/DECISIONS.md and docs/BUILD.md).
+  JUCE_TAG: 8.0.6
+  VST3SDK_TAG: v3.8.1_build_84
+  DEPS_DIR: ${{ github.workspace }}/deps
+
 jobs:
-  test-dsp:
-    name: DSP tests (Linux)
+  unit-tests:
+    name: Unit tests (Linux, no JUCE fetch)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build and run DSP tests (no JUCE needed)
-        run: |
-          g++ -std=c++17 -Wall -Wextra -Isrc tests/dsp_tests.cpp src/dsp/FMSynth.cpp src/dsp/Envelope.cpp -o dsp_tests
-          ./dsp_tests
+      - name: Configure tests-only build
+        run: cmake -B build-tests -DGNARL_BUILD_PLUGIN=OFF -DCMAKE_BUILD_TYPE=Release
+      - name: Build unit tests
+        run: cmake --build build-tests -j
+      - name: Run unit tests (DSP + sequencer)
+        run: ctest --test-dir build-tests --output-on-failure
 
   build-vst3:
-    name: Windows VST3 build
+    name: Windows VST3 build + artifact checks
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Cache pinned JUCE dependency
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.DEPS_DIR }}
+          key: gnarl-juce-${{ env.JUCE_TAG }}-${{ runner.os }}
+          restore-keys: gnarl-juce-
       - name: Configure (Release)
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DFETCHCONTENT_BASE_DIR=${{ env.DEPS_DIR }}
       - name: Build all plugin targets
         run: cmake --build build --config Release
-      - name: Run DSP tests
+      - name: Run unit tests on Windows
         run: ctest --test-dir build --output-on-failure -C Release
-      - name: Locate VST3 artifact
-        id: find
+      - name: Stage VST3 artifact
         shell: pwsh
         run: |
           $vst3 = Get-ChildItem -Path build -Recurse -Filter *.vst3 | Select-Object -First 1
           if (-not $vst3) { throw "No .vst3 artifact found" }
-          "VST3_PATH=$($vst3.FullName)" >> $env:GITHUB_OUTPUT
-          New-Item -ItemType Directory -Force -Path ../dist | Out-Null
-          Copy-Item $vst3.FullName ../dist/ -Recurse -Force
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item $vst3.FullName dist/ -Recurse -Force
+      - name: Verify VST3 bundle structure and metadata
+        run: python tools/verify_vst3_bundle.py dist/GNARL.vst3 --name GNARL --manufacturer zwiebo
+      - name: Verify runtime dependencies (system DLLs only)
+        shell: pwsh
+        run: |
+          $dll = Get-ChildItem -Path dist/GNARL.vst3/Contents/x86_64-win -Filter *.dll | Select-Object -First 1
+          pwsh tools/check_dll_dependencies.ps1 -DllPath $dll.FullName
       - name: Upload GNARL.vst3 artifact
         uses: actions/upload-artifact@v4
         with:
           name: GNARL-vst3-windows-x64
           path: dist/GNARL.vst3
           retention-days: 30
+
+  validate-vst3:
+    name: VST3 conformance (Steinberg validator)
+    runs-on: windows-latest
+    needs: build-vst3
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: GNARL-vst3-windows-x64
+          path: dist
+      - name: Clone pinned VST3 SDK (MIT license)
+        run: git clone --depth 1 --branch ${{ env.VST3SDK_TAG }} --recursive https://github.com/steinbergmedia/vst3sdk.git vst3sdk
+      - name: Cache validator build
+        uses: actions/cache@v4
+        with:
+          path: sdk-build
+          key: vst3sdk-validator-${{ env.VST3SDK_TAG }}-${{ runner.os }}
+          restore-keys: vst3sdk-validator-
+      - name: Build Steinberg validator
+        run: |
+          cmake -B sdk-build -S vst3sdk -DCMAKE_BUILD_TYPE=Release -DSMTG_ENABLE_VST3_PLUGIN_EXAMPLES=OFF -DSMTG_ENABLE_VSTGUI_SUPPORT=OFF -DSMTG_CREATE_PLUGIN_LINK=0
+          cmake --build sdk-build --config Release --target validator
+      - name: Run validator on GNARL.vst3
+        run: ./sdk-build/bin/Release/validator.exe dist/GNARL.vst3
