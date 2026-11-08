@@ -5,6 +5,11 @@ project(GNARL VERSION 0.1.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# OFF builds only the dependency-free unit tests (used by the fast Linux CI
+# job); ON (default) builds the full JUCE VST3 plugin.
+option(GNARL_BUILD_PLUGIN "Build the JUCE VST3 plugin (requires fetching JUCE)" ON)
+
+if(GNARL_BUILD_PLUGIN)
 # Pinned dependency: JUCE 8.0.6 (see docs/DECISIONS.md for licensing notes)
 include(FetchContent)
 FetchContent_Declare(JUCE
@@ -30,8 +35,7 @@ target_sources(GNARL PRIVATE
     src/PluginProcessor.cpp
     src/PluginEditor.cpp
     src/params/Parameters.cpp
-    src/dsp/FMSynth.cpp src/dsp/Envelope.cpp src/dsp/SoundMutation.cpp src/presets/Presets.cpp src/sequencer/PatternGenerator.cpp src/sequencer/StepScheduler.cpp src/sequencer/MidiExporter.cpp
-    src/dsp/SynthEngine.cpp)
+    src/dsp/FMSynth.cpp src/dsp/Envelope.cpp src/dsp/SoundMutation.cpp src/presets/Presets.cpp src/sequencer/PatternGenerator.cpp src/sequencer/StepScheduler.cpp src/sequencer/MidiExporter.cpp)
 
 target_include_directories(GNARL PRIVATE src)
 
@@ -45,6 +49,7 @@ target_link_libraries(GNARL PRIVATE
     juce::juce_audio_utils
     juce::juce_dsp
     juce::juce_gui_extra)
+endif() # GNARL_BUILD_PLUGIN
 
 enable_testing()
 add_subdirectory(tests)
