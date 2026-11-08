@@ -1,0 +1,49 @@
+name: Build GNARL VST3 (Windows)
+
+on:
+  push:
+    branches: [main, 'vibe/**']
+  pull_request:
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: gnarl
+
+jobs:
+  test-dsp:
+    name: DSP tests (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and run DSP tests (no JUCE needed)
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Isrc tests/dsp_tests.cpp src/dsp/FMSynth.cpp src/dsp/Envelope.cpp -o dsp_tests
+          ./dsp_tests
+
+  build-vst3:
+    name: Windows VST3 build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure (Release)
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+      - name: Build all plugin targets
+        run: cmake --build build --config Release
+      - name: Run DSP tests
+        run: ctest --test-dir build --output-on-failure -C Release
+      - name: Locate VST3 artifact
+        id: find
+        shell: pwsh
+        run: |
+          $vst3 = Get-ChildItem -Path build -Recurse -Filter *.vst3 | Select-Object -First 1
+          if (-not $vst3) { throw "No .vst3 artifact found" }
+          "VST3_PATH=$($vst3.FullName)" >> $env:GITHUB_OUTPUT
+          New-Item -ItemType Directory -Force -Path ../dist | Out-Null
+          Copy-Item $vst3.FullName ../dist/ -Recurse -Force
+      - name: Upload GNARL.vst3 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GNARL-vst3-windows-x64
+          path: dist/GNARL.vst3
+          retention-days: 30
